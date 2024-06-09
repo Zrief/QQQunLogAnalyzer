@@ -2,7 +2,7 @@ import re
 import pandas as pd
 
 def parse_chat_record(file_path):
-    pattern = r"(\d{4}-\d{2}-\d{2} \d{1,2}:\d{1,2}:\d{2}) (.+?)\((\d+)\)\n(.+?)\n\n"
+    pattern = r"(\d{4}-\d{2}-\d{2} \d{1,2}:\d{1,2}:\d{2}) (.+?)[\(<]([\dA-z\.@]*)[\)>]\n(.+?)\n\n"
 
     with open(file_path, 'r', encoding='utf-8') as file:
         content = file.read()
@@ -30,7 +30,7 @@ def parse_chat_record(file_path):
     return df
 
 if __name__ == '__main__':
-    file_path = r'聊天记录导出.txt'  # 将此处替换为您的聊天记录文件路径
+    file_path = r'浓香烤炉.txt'  # 将此处替换为您的聊天记录文件路径
     chat_df = parse_chat_record(file_path)
     print(chat_df)
     chat_df.to_csv(r"OrganizedData.csv",encoding='utf-8-sig')
