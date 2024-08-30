@@ -4,7 +4,7 @@ from draw_result import draw
 file_path = r'球球的萨卡兹窝ฅ՞•ﻌ•՞ฅ.txt'  # 将此处替换为您的聊天记录文件路径
 
 banned_id_list=[10000,1000000,  #系统消息
-            1342971950, #机械人
+            123456789, #机械人
             ]
 
 timerange = 'week' # day,week,month,year
