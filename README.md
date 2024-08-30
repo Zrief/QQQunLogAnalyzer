@@ -1,7 +1,10 @@
 # QunFriends
  Visual analysis tool for QQ group Chat log | QQ群聊天记录可视化分析工具
 
-PC端QQ客户端支持导出聊天记录为txt文件（至少老版QQ可以导出为txt记录），本项目基于此文件进行分析，绘制用户的发言时间热力图。
+PC端QQ客户端支持导出聊天记录为txt文件（至少老版QQ可以导出为txt记录）
+![image](Pics/导出方法.jpg)
+
+本项目基于此文件进行分析，绘制用户的发言时间热力图。
 
 ![image](Pics/Snipaste_2023-07-29_18-28-10.jpg)
 
