@@ -6,6 +6,9 @@ from datetime import datetime, timedelta
 
 
 def qq_txt_to_csv(file_path, banned_id_list, sd, ed):
+    """读数据，并将数据输出为：
+    时间，昵称，id（qq号/邮箱），消息文本
+    删除特定id后，将昵称统一"""
     # 读数据
     with open(file_path, "r", encoding="utf-8") as file:
         content = file.read()
@@ -80,6 +83,10 @@ def get_last_time_range(period: str):
         end_data = now - timedelta(days=1)
         start_date = end_data
         idstr = f"昨日"
+    elif period =="all":
+        end_data = now
+        start_date=end_data-timedelta(days=99999)
+        idstr = f"全部"
 
     start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
     end_data = end_data.replace(hour=23, minute=59, second=59, microsecond=999999)

@@ -4,7 +4,7 @@ import os
 
 
 # 聊天记录目录
-namelist = ['球球的赛博猫窝ฅ՞•ﻌ•՞ฅ']
+namelist = ['低研会官服助战交流群1']
 for name in namelist:
     file_path = name +'.txt'
 
@@ -19,7 +19,7 @@ for name in namelist:
                 ]
 
     # 上周，上上周（比如说上周忘了出图时用），上个月，去年，昨天
-    timerange = 'lastweek' # lastweek, lastlastweek, lastmonth, lastyear, yesterday
+    timerange = 'lastweek' # lastweek, lastlastweek, lastmonth, lastyear, yesterday, all
 
     # 整理成csv，排除特定用户，指定时间段
     sd,ed,idstr = get_last_time_range(timerange)

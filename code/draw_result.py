@@ -2,172 +2,128 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib import font_manager
+from line_profiler import profile
 import os
 
+shichen_list =  [
+    "子23", "丑1", "寅3", "卯5", "辰7", "巳9",
+    "午11", "未13", "申15", "酉17", "戌19", "亥21"
+]  # 每小时太宽泛了，用时辰
+font_path = os.path.join("font", "LatinmodernmathRegular-z8EBa.otf")  # 字体路径
 
-def draw(timestr, folder_path):
-    # 创建OutputTimeseries文件夹，如果不存在
-    if not os.path.exists("输出图片"):
-        os.makedirs("输出图片")
-    # 导入数据
-    df = pd.read_csv("OrganizedData.csv", encoding="utf-8-sig")
+def prepare_data() -> pd.DataFrame:
+    """数据加载与预处理
+    读取数据，原数据列名：时间、昵称、id、文本
+    处理文本为空的情况
+    添加数据列：小时、时辰、周几、"""
+    df = pd.read_csv("OrganizedData.csv", encoding="utf-8-sig", parse_dates=["Time"])
+    df["Message"] = df["Message"].fillna("")  # 处理空消息
 
-    # 将 'Time' 列转换为 datetime 类型
-    df["Time"] = pd.to_datetime(df["Time"])
-
-    # 创建一个新的列 'Hour'，表示每条信息发送的小时
     df["Hour"] = df["Time"].dt.hour
+    # map字典映射，比apply快很多
+    hour_to_shichen = {i: shichen_list[((i + 1) // 2) % 12] for i in range(24)}
+    df["ShiChen"] = df["Hour"].map(hour_to_shichen)
 
-    # 每小时太宽泛了，用时辰
-    sclist = [
-        "子23",
-        "丑1",
-        "寅3",
-        "卯5",
-        "辰7",
-        "巳9",
-        "午11",
-        "未13",
-        "申15",
-        "酉17",
-        "戌19",
-        "亥21",
-    ]
-
-    df["ShiChen"] = df["Hour"].apply(lambda x: sclist[x % 23 // 2])
-
-    # 这个没用到
-    # 创建一个新的列 'Day_of_Week'，表示每条信息发送的是一周中的哪一天
-    df['Day_of_Week'] = df['Time'].dt.dayofweek
-    print(df)
-
-    # 消息次数
-    message_count = df["Sender"].value_counts()
-
-    # 图片次数
+    df["Day_of_Week"] = df["Time"].dt.dayofweek
+    
     df["media_count"] = df["Message"].str.contains("[图片]", regex=False).astype(int)
-    pic_count = df.groupby("Sender")["media_count"].sum()
-
-    # 统计每条消息的总字数
     df["word_count"] = df["Message"].str.len()
-    word_count = df.groupby("Sender")["word_count"].sum()
+    return df
 
-    # 统计在每个时辰的消息数量
-    message_count_by_shichen = (
-        df.groupby(["Sender", "ShiChen"]).size().reset_index(name="Counts")
+def generate_statistics(df: pd.DataFrame, top_n: int) -> dict:
+    """生成发送者的统计信息"""
+    # 消息、图片、字数统计
+    stats = df.groupby("Sender").agg(
+        message_count=("Sender", "size"),
+        pic_count=("media_count", "sum"),
+        word_count=("word_count", "sum")
+    ).sort_values("message_count", ascending=False)
+    
+    # 取前 top_n 个发送者
+    top_n = len(stats) if len(stats) <= top_n else top_n
+    top_senders = stats.head(top_n)
+    senders = top_senders.index.tolist()
+    
+    # 各时辰消息数
+    shichen_stats = (
+        df[df["Sender"].isin(senders)]
+        .groupby(["Sender", "ShiChen"])
+        .size()
+        .unstack(fill_value=0)
+        .reindex(columns=shichen_list, fill_value=0)
     )
+    return {
+        "message_count": top_senders["message_count"],
+        "pic_count": top_senders["pic_count"],
+        "word_count": top_senders["word_count"],
+        "shichen_stats": shichen_stats,
+        "senders": senders
+    }
 
-    # 如果sender数量大于15，则只展示前15个
-    num = 15
-    # if len(message_count) < num:
-    num = min(len(message_count), num)
-    top_senders = message_count.index[:num]  # 前n个
-    message_count = message_count.loc[top_senders]  # 前n个的次数
-    word_count = word_count.loc[top_senders]  # 前n个的字数
-    pic_count = pic_count.loc[top_senders]  # 前n个的图片数
-
-    message_count_by_shichen = message_count_by_shichen[
-        message_count_by_shichen["Sender"].isin(top_senders)
-    ]  # 时辰
-
-    top_index = [ii for ii in range(len(message_count))]  # 前n个的数字索引
-
-    #应对某些奇怪的粗体字母
-    font_manager.fontManager.addfont(r"font\LatinmodernmathRegular-z8EBa.otf")
+def plot_charts(timestr: str, folder_path: str, stats: dict) -> None:
+    """绘制并保存图表"""
+    # 初始化字体
+    font_manager.fontManager.addfont(font_path)# 应对某些奇怪的粗体字母
     plt.rcParams["font.family"] = ["sans-serif", "Latin Modern Math"]
-    plt.rcParams["font.sans-serif"] = "SimHei"  # 显示中文
-    plt.rcParams["axes.unicode_minus"] = False  # 显示负号
+    plt.rcParams["font.sans-serif"] = "SimHei"
+    plt.rcParams["axes.unicode_minus"] = False
 
-    # 根据时间范围确定图的宽度
-    time_range = df["Time"].max() - df["Time"].min()
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 9), dpi=320)
 
-    # 不知道理由，不理解当时的想法，反正效果还行
-    width = max(10, time_range.days / 30)  # 每30天增加1个单位的宽度
-    barwidth = len(message_count) / 2  # 柱状图宽度
+    plt.suptitle(timestr, fontsize=30)  # 总标题
 
-    plt.figure(dpi=300, figsize=(max(barwidth, 10) + width, 10))
-
-
-    plt.suptitle(timestr, fontsize=30)# 总标题
-
-    # 柱状图
-    ax = plt.subplot(2, 2, 2)
-    plt.grid()
-    message_count = pd.DataFrame(message_count)
-
-    sns.barplot(
-        y="Sender", x="count", data=message_count, color="#CCD2CC", label="消息条数"
-    )
-    plt.plot(
-        word_count.values / 10,
-        top_index,
-        color="#976666",
-        label="总字数/10",
-        marker="o",
-        markersize=5,
-    )
-    plt.plot(
-        pic_count.values,
-        top_index,
-        color="#976AA6",
-        label="发图数",
-        marker="s",
-        markersize=5,
-    )
-
-    plt.title(f"消息对比", fontsize=20)
-    plt.xticks(rotation=0, fontsize=18)
-    plt.xlabel("数量")
-
-    plt.yticks([])
-    plt.ylabel(None)
-    ax.set_ylim([14.5, -0.5])
-
-    plt.tight_layout()
-    ax = plt.gca()
-    ax.spines.right.set_color("none")
-    ax.spines["top"].set_visible(False)
-    plt.legend(fontsize=20)
-
-    # 热力图
-    message_count_by_shichen_pivot = (
-        message_count_by_shichen.pivot_table(
-            index="Sender",
-            columns="ShiChen",
-            values="Counts",
-        )
-        .fillna(0)
-        .reindex(columns=sclist)
-        .reindex(index=message_count.index[top_index])
-    )
-
-    plt.subplot(2, 2, 1)
-
-    ax = sns.heatmap(
-        message_count_by_shichen_pivot,
+    # 热力图：各时辰消息分布
+    sns.heatmap(
+        stats["shichen_stats"],
+        ax=ax1,
         linewidths=0.3,
         linecolor="grey",
         cmap="bone_r",
-        cbar_kws={"location": "left"},
+        cbar_kws={"location": "left",
+                  "pad": 0.02  # 缩小间距（默认值为0.15）
+                  },
+        alpha=0.8
     )
+    ax1.set_title("聊天分布", fontsize=23)
+    ax1.set_xlabel("时辰（开始小时）",fontsize=15)
+    ax1.yaxis.tick_right()# 将y轴标签移动到右边
+    ax1.set_ylabel(None)
+    ax1.tick_params(axis="x", rotation=0, labelsize=12)
+    ax1.tick_params(axis="y", rotation=0, labelsize=12)
+    ax1.spines["right"].set_position(("outward", 0))  # 将y轴的刻度线移动到右边
 
-    # 将y轴标签移动到右边
-    ax.yaxis.set_ticks_position("right")
-    ax.yaxis.set_label_position("right")
-    ax.spines["right"].set_position(("outward", 0))  # 将y轴的刻度线移动到右边
+    # 柱状图：消息对比
+    senders = stats["senders"]
+    y_pos = range(len(senders))
+    ax2.barh(y_pos, stats["message_count"], color="#CCD2CC", label="消息条数")
+    ax2.plot(
+        stats["word_count"] / 10, y_pos, 
+        color="#976666", marker="o", markersize=10, label="字数×10"
+    )
+    ax2.plot(
+        stats["pic_count"], y_pos,
+        color="#976AA6", marker="s", markersize=10, label="发图数"
+    )
+    ax2.set_title("消息对比", fontsize=20)
 
-    plt.title(f"聊天分布", fontsize=23)
-    plt.xlabel("时辰（开始小时）")
-    plt.ylabel(None)
-
-    ax = plt.subplot(2, 2, 3)
-
-
+    ax2.grid(True)
+    ax2.legend(fontsize=20)
+    ax2.tick_params(axis="x", rotation=0, labelsize=18)
+    
+    ax2.set_yticks([])
+    ax2.set_ylim(len(senders)-0.5, -0.5)
 
     plt.tight_layout()
+    # 保存图表
+    os.makedirs(folder_path, exist_ok=True)
     plt.savefig(f"{folder_path}/{timestr}-水群榜.png")
-    # plt.show()
+    plt.close()
 
+@profile
+def draw(timestr: str, folder_path: str) -> None:
+    df = prepare_data()
+    stats = generate_statistics(df, 15)
+    plot_charts(timestr, folder_path, stats)
 
 if __name__ == "__main__":
     draw("test", "./")
