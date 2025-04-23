@@ -1,4 +1,4 @@
-# QunFriends
+# QQQunLogAnalyzer | QQ群记录分析工具
  Visual analysis tool for QQ group Chat log | QQ群聊天记录可视化分析工具
 
 PC端QQ客户端支持导出聊天记录为txt文件（至少老版QQ可以导出为txt记录）
