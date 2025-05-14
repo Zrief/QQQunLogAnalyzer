@@ -26,7 +26,9 @@ def prepare_data() -> pd.DataFrame:
     读取数据，原数据列名：时间、昵称、id、文本
     处理文本为空的情况
     添加数据列：小时、时辰、周几、"""
-    df = pd.read_csv("OrganizedData.csv", encoding="utf-8-sig", parse_dates=["Time"])
+    df = pd.read_csv("OrganizedData.csv",
+                     encoding="utf-8-sig",
+                     parse_dates=["Time"])
     df["Message"] = df["Message"].fillna("")  # 处理空消息
 
     df["Hour"] = df["Time"].dt.hour
@@ -36,7 +38,8 @@ def prepare_data() -> pd.DataFrame:
 
     df["Day_of_Week"] = df["Time"].dt.dayofweek
 
-    df["media_count"] = df["Message"].str.contains("[图片]", regex=False).astype(int)
+    df["media_count"] = df["Message"].str.contains("[图片]",
+                                                   regex=False).astype(int)
     df["word_count"] = df["Message"].str.len()
     return df
 
@@ -44,15 +47,11 @@ def prepare_data() -> pd.DataFrame:
 def generate_statistics(df: pd.DataFrame, top_n: int) -> dict:
     """生成发送者的统计信息"""
     # 消息、图片、字数统计
-    stats = (
-        df.groupby("Sender")
-        .agg(
-            message_count=("Sender", "size"),
-            pic_count=("media_count", "sum"),
-            word_count=("word_count", "sum"),
-        )
-        .sort_values("message_count", ascending=False)
-    )
+    stats = (df.groupby("Sender").agg(
+        message_count=("Sender", "size"),
+        pic_count=("media_count", "sum"),
+        word_count=("word_count", "sum"),
+    ).sort_values("message_count", ascending=False))
 
     # 取前 top_n 个发送者
     top_n = len(stats) if len(stats) <= top_n else top_n
@@ -60,13 +59,10 @@ def generate_statistics(df: pd.DataFrame, top_n: int) -> dict:
     senders = top_senders.index.tolist()
 
     # 各时辰消息数
-    shichen_stats = (
-        df[df["Sender"].isin(senders)]
-        .groupby(["Sender", "ShiChen"])
-        .size()
-        .unstack(fill_value=0)
-        .reindex(columns=shichen_list, fill_value=0)
-    )
+    shichen_stats = (df[df["Sender"].isin(senders)].groupby([
+        "Sender", "ShiChen"
+    ]).size().unstack(fill_value=0).reindex(columns=shichen_list,
+                                            fill_value=0)).reindex(senders)
     return {
         "message_count": top_senders["message_count"],
         "pic_count": top_senders["pic_count"],
@@ -84,7 +80,7 @@ def plot_charts(timestr: str, folder_path: str, stats: dict) -> None:
     plt.rcParams["font.sans-serif"] = "SimHei"
     plt.rcParams["axes.unicode_minus"] = False
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 9), dpi=320)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 9), dpi=300)
 
     plt.suptitle(timestr, fontsize=30)  # 总标题
 
@@ -95,9 +91,12 @@ def plot_charts(timestr: str, folder_path: str, stats: dict) -> None:
         linewidths=0.3,
         linecolor="grey",
         cmap="bone_r",
-        cbar_kws={"location": "left", "pad": 0.02},  # 缩小间距（默认值为0.15）
+        cbar_kws={
+            "location": "left",
+            "pad": 0.02
+        },  # 缩小间距（默认值为0.15）
         alpha=0.8,
-    )
+        yticklabels=stats["senders"])
     ax1.set_title("聊天分布", fontsize=23)
     ax1.set_xlabel("时辰（开始小时）", fontsize=15)
     ax1.yaxis.tick_right()  # 将y轴标签移动到右边
@@ -116,7 +115,7 @@ def plot_charts(timestr: str, folder_path: str, stats: dict) -> None:
         color="#976666",
         marker="o",
         markersize=10,
-        label="字数×10",
+        label="字数(×10)",
     )
     ax2.plot(
         stats["pic_count"],
